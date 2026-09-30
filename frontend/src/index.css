@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局基调：纯白底、柔黑文字、系统字体、抗锯齿 */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-white text-ink-900 font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  ::selection {
+    background: rgba(25, 25, 25, 0.12);
+  }
+  :focus-visible {
+    outline: 2px solid #191919;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* 细滚动条，保持界面安静 */
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #e5e5e5 transparent;
+  }
+  .thin-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .thin-scroll::-webkit-scrollbar-thumb {
+    background: #e5e5e5;
+    border-radius: 3px;
+  }
+
+  /* 表单输入基础样式 */
+  .input {
+    @apply w-full rounded-card border border-line bg-white px-3 py-2 text-sm text-ink-900 outline-none transition-colors placeholder:text-ink-450 hover:border-line-strong focus:border-ink;
+  }
+
+  /* 流式打字光标 */
+  .typing-caret::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: -2px;
+    background: #191919;
+    animation: caret-blink 1s steps(2) infinite;
+  }
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+/* Markdown 排版：在 typography 基础上收紧、改为黑白灰 */
+.md {
+  @apply prose prose-sm max-w-none text-ink-900;
+  --tw-prose-body: #171717;
+  --tw-prose-headings: #191919;
+  --tw-prose-links: #191919;
+  --tw-prose-bold: #191919;
+  --tw-prose-bullets: #999;
+  --tw-prose-counters: #767676;
+  --tw-prose-quotes: #444;
+  --tw-prose-quote-borders: #eee;
+  --tw-prose-code: #191919;
+  --tw-prose-hr: #f0f0f0;
+  --tw-prose-th-borders: #eee;
+  --tw-prose-td-borders: #f0f0f0;
+  line-height: 1.75;
+}
+.md :where(h1, h2, h3, h4) {
+  font-weight: 600;
+}
+.md :where(p, li) {
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+.md :where(code):not(pre code) {
+  @apply rounded bg-surface-muted px-1 py-0.5 font-normal;
+}
+.md :where(code):not(pre code)::before,
+.md :where(code):not(pre code)::after {
+  content: none;
+}
+.md pre {
+  @apply rounded-card border border-line bg-surface-soft text-ink-900;
+}
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
