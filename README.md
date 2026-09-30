@@ -38,7 +38,7 @@ cp .env.example .env
 ```bash
 cd backend
 uv sync
-uv run uvicorn app.main:app --port 8765 --reload
+uv run uvicorn app.main:app --port 8765 --reload --reload-dir app
 ```
 
 健康检查：http://localhost:8765/api/health
@@ -65,32 +65,22 @@ npm run dev
 
 ## 用 Langfuse 看运行过程
 
-本机 `/admin` 是自建观测后台。要看 **LangGraph 节点树 + 每次 LLM 的完整 prompt/completion**，用 [Langfuse](https://langfuse.com)。
-
-1. 打开 https://cloud.langfuse.com 注册（欧盟默认；美区用 https://us.cloud.langfuse.com）。
-2. 创建一个项目，进入 **Project Settings → API Keys**，复制 Public Key（`pk-lf-…`）和 Secret Key（`sk-lf-…`）。
-3. 写入 `backend/.env`：
+本机 `/admin` 是自建观测后台。要看 **LangGraph 节点树 + 每次 LLM 的完整 prompt/completion**，用本机 Langfuse（已写好配置，不必改 `.env`）。
 
 ```bash
-LANGFUSE_PUBLIC_KEY=pk-lf-你的公钥
-LANGFUSE_SECRET_KEY=sk-lf-你的私钥
-LANGFUSE_BASE_URL=https://cloud.langfuse.com
-LANGFUSE_ENVIRONMENT=development
+chmod +x scripts/start-langfuse.sh
+./scripts/start-langfuse.sh
+# 然后重启后端
+cd backend && uv run uvicorn app.main:app --port 8765 --reload --reload-dir app
 ```
 
-4. 重启后端。启动日志应出现 `Langfuse 认证成功`。观测后台左下角也会显示「Langfuse 已开启」。
-5. 在产品里做一次问答或导入，然后到 Langfuse 左侧 **Tracing**。
+- 界面：http://localhost:3100
+- 登录：`local@notebooklm.lite` / `notebooklm-local`
+- 在产品里问一句，回到 Langfuse 左侧 **Tracing**
 
-你会看到：
+你会看到 Trace 名称 `chat_graph` / `ingest_graph` / `studio_graph`，点进去是各节点 → `ChatOpenAI`。
 
-- **Trace 名称**：`chat` / `ingest` / `studio`
-- **Session**：按笔记本 id 聚合同一本里的多次调用
-- **树**：`chat_graph` → `choose_mode` / `generate` / `finalize` → `ChatOpenAI`（完整 messages 与输出）
-- Tags：`notebooklm-lite`、`chat`
-
-自托管：把官方 docker compose 起在本机后，把 `LANGFUSE_BASE_URL` 改成 `http://localhost:3000`。
-
-LangSmith 仍可用（`LANGSMITH_TRACING=true`），与 Langfuse、本机后台互不影响。
+也可用云端：把 `.env` 里的 `LANGFUSE_BASE_URL` 改回 `https://cloud.langfuse.com` 并填官方 pk/sk。LangSmith（`LANGSMITH_TRACING=true`）与本机后台可同时开。
 
 ## 测试
 

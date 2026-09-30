@@ -1,0 +1,49 @@
+# 本机 Langfuse（v2，只需 Postgres，适合个人观测）
+# 启动：docker compose -f docker-compose.langfuse.yml up -d
+# 界面：http://localhost:3100
+# 登录：local@notebooklm.lite  /  notebooklm-local
+
+services:
+  langfuse:
+    image: langfuse/langfuse:2
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    ports:
+      - "3100:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@langfuse-db:5432/postgres
+      NEXTAUTH_SECRET: notebooklm-lite-nextauth-secret
+      SALT: notebooklm-lite-salt
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      NEXTAUTH_URL: http://localhost:3100
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_INIT_ORG_ID: notebooklm-lite
+      LANGFUSE_INIT_ORG_NAME: NotebookLM Lite
+      LANGFUSE_INIT_PROJECT_ID: notebooklm-lite
+      LANGFUSE_INIT_PROJECT_NAME: NotebookLM Lite
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-local-notebooklm-lite
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-local-notebooklm-lite-secret
+      LANGFUSE_INIT_USER_EMAIL: local@notebooklm.lite
+      LANGFUSE_INIT_USER_NAME: Local
+      LANGFUSE_INIT_USER_PASSWORD: notebooklm-local
+    restart: unless-stopped
+
+  langfuse-db:
+    image: postgres:17
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - langfuse_pg:/var/lib/postgresql/data
+
+volumes:
+  langfuse_pg:
