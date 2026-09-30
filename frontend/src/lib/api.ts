@@ -160,6 +160,8 @@ export type Health = {
   embedding_model: string
   llm_configured: boolean
   embedding_configured: boolean
+  langfuse_configured?: boolean
+  langfuse_host?: string | null
 }
 
 /** 5.3 SSE step 事件 */

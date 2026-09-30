@@ -39,7 +39,11 @@
 观测后台同一套黑白灰 token，用图表和瀑布图表达密度，不用彩色仪表盘。
 
 ### 观测（自建 LangSmith-lite）
-每次 ingest / chat / studio 写一条 `run`，节点、LLM、检索、向量化写 `span`。不依赖 LangSmith 账号即可看链路；可选打开 `LANGSMITH_TRACING` 同步到云端。
+每次 ingest / chat / studio 写一条 `run`，节点、LLM、检索、向量化写 `span`。不依赖外部账号即可在 `/admin` 看链路。
+
+可选同步到 **Langfuse**：配置 `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` 后，LangGraph 回调会上报完整节点树与 LLM 输入输出。Trace 名 = 调用类型，Session = 笔记本 id。
+
+也可选打开 `LANGSMITH_TRACING` 同步到 LangSmith。三者可同时开。
 
 ## 2. 技术架构
 
@@ -63,7 +67,7 @@
 - **向量化**：`openai/text-embedding-3-small`（经 OpenRouter）。
 - **向量存储**：SQLite 存 float32 向量 + numpy 余弦相似度。个人规模（< 10 万片段）足够，零运维。
 - **关键词检索**：jieba 分词 + BM25，与向量检索用 RRF 融合。
-- **观测**：自建（`runs` / `spans` 表 + LangChain 回调），无需外部账号；可选打开 `LANGSMITH_TRACING=true` 同步到 LangSmith。
+- **观测**：自建（`runs` / `spans` 表 + LangChain 回调），无需外部账号；可选 Langfuse（`LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY`）或 LangSmith（`LANGSMITH_TRACING=true`）。
 
 ## 3. 核心流程（LangGraph）
 
@@ -190,7 +194,7 @@ type Span = {
 | POST | `/notebooks/{id}/notes` | body `{kind, title, content}` → `Note` |
 | DELETE | `/notes/{id}` | `{ok:true}` |
 | POST | `/notebooks/{id}/studio` | body `{kind: "briefing"\|"study_guide"\|"faq", source_ids: string[] \| null}` → `Note`（同步，可能 10–60 秒） |
-| GET | `/health` | `{ok:true, model, embedding_model, llm_configured, embedding_configured}` |
+| GET | `/health` | `{ok, model, embedding_model, llm_configured, embedding_configured, langfuse_configured, langfuse_host}` |
 
 ### 5.3 问答 SSE 事件
 

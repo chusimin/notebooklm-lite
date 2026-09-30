@@ -84,6 +84,8 @@ class FakeEmbedder:
 @pytest.fixture
 def tmp_db(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "db_path", tmp_path / "test.db")
+    monkeypatch.setattr(settings, "langfuse_public_key", "")
+    monkeypatch.setattr(settings, "langfuse_secret_key", "")
     init_db()
     return settings.db_path
 

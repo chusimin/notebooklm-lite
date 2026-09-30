@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from app import repo
 from app.api import admin, chat, notebooks, notes, sources
 from app.config import export_langsmith_env, settings
+from app.observability import langfuse_io
 from app.db import init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -25,6 +26,8 @@ logger = logging.getLogger("notebooklm")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     export_langsmith_env()
+    langfuse_io.export_env()
+    langfuse_io.startup_check()
     init_db()
     stale = repo.fail_stale_processing_sources()
     if stale:
@@ -70,6 +73,8 @@ def health():
         "embedding_model": settings.embedding_model,
         "llm_configured": bool(settings.llm_api_key.strip()),
         "embedding_configured": bool(settings.embedding_api_key.strip()),
+        "langfuse_configured": langfuse_io.is_enabled(),
+        "langfuse_host": settings.langfuse_base_url if langfuse_io.is_enabled() else None,
     }
 
 

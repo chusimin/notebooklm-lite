@@ -139,12 +139,21 @@ def get_active_run(run_id: str | None) -> RunHandle | None:
 def trace_config(run: RunHandle, **extra: Any) -> RunnableConfig:
     """构造传给 graph 的 config：注入追踪回调，并把 run_id 放进 configurable/metadata 兜底。"""
     from app.observability.callback import TraceCallbackHandler
+    from app.observability import langfuse_io
 
+    callbacks: list[Any] = [TraceCallbackHandler()]
+    lf = langfuse_io.make_handler()
+    if lf is not None:
+        callbacks.append(lf)
     configurable = {"trace_run_id": run.id, **extra}
+    metadata: dict[str, Any] = {"trace_run_id": run.id, "kind": run.kind}
+    if run.notebook_id:
+        metadata["langfuse_session_id"] = run.notebook_id
+        metadata["notebook_id"] = run.notebook_id
     return {
         "configurable": configurable,
-        "metadata": {"trace_run_id": run.id},
-        "callbacks": [TraceCallbackHandler()],
+        "metadata": metadata,
+        "callbacks": callbacks,
         "run_name": f"{run.kind}_graph",
     }
 
@@ -233,13 +242,17 @@ async def start_run(kind: str, notebook_id: str | None, input_: Any) -> AsyncIte
     run_token = _current_run.set(run)
     span_token = _current_span.set(None)
     status, error = "success", None
+    from app.observability import langfuse_io
+
     try:
-        yield run
+        with langfuse_io.trace_scope(kind=kind, run_id=run.id, notebook_id=notebook_id):
+            yield run
     except BaseException as exc:  # 包含 CancelledError（客户端断开）
         status = "error"
         error = _error_text(exc)
         raise
     finally:
+        langfuse_io.flush()
         _current_span.reset(span_token)
         _current_run.reset(run_token)
         _active_runs.pop(run.id, None)

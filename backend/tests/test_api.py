@@ -25,6 +25,7 @@ def test_health(client):
     assert "model" in r and "embedding_model" in r
     assert "llm_configured" in r and "embedding_configured" in r
     assert isinstance(r["llm_configured"], bool)
+    assert "langfuse_configured" in r
 
 
 def test_notebook_crud(client):

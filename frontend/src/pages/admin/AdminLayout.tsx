@@ -73,6 +73,11 @@ export default function AdminLayout() {
                 <div className="truncate" title={health.embedding_model}>
                   向量 {health.embedding_model}
                 </div>
+                {health.langfuse_configured && (
+                  <div className="mt-1 truncate" title={health.langfuse_host ?? ''}>
+                    Langfuse 已开启
+                  </div>
+                )}
               </>
             )}
           </div>

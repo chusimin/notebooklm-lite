@@ -106,3 +106,20 @@ def test_summarize_value_truncates():
     assert len(out["text"]) <= 301
     assert out["items"][-1] == "… 共 50 项"
     assert out["raw"] == "<3 字节>"
+
+
+async def test_trace_config_langfuse_callback_only_when_keys(tmp_db, monkeypatch):
+    """未配置密钥时只有自建回调；配了密钥才挂上 Langfuse CallbackHandler。"""
+    from app.config import settings
+    from app.observability.tracer import RunHandle, trace_config
+
+    run = RunHandle(id="r1", kind="chat", notebook_id="nb1")
+    cfg = trace_config(run)
+    assert len(cfg["callbacks"]) == 1
+    assert cfg["run_name"] == "chat_graph"
+
+    monkeypatch.setattr(settings, "langfuse_public_key", "pk-lf-test")
+    monkeypatch.setattr(settings, "langfuse_secret_key", "sk-lf-test")
+    cfg2 = trace_config(run)
+    assert len(cfg2["callbacks"]) == 2
+    assert cfg2["callbacks"][1].__class__.__name__ == "LangchainCallbackHandler" or "CallbackHandler" in cfg2["callbacks"][1].__class__.__name__

@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     langsmith_project: str = ""
     langsmith_endpoint: str = ""
 
+    # ---- 可选：Langfuse 追踪（LangGraph / LLM 链路）----
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = "https://cloud.langfuse.com"
+    langfuse_environment: str = "development"
+
     # ---- 运行参数 ----
     db_path: Path = BACKEND_DIR / "data" / "app.db"
     max_upload_mb: int = 20

@@ -63,6 +63,35 @@ npm run dev
 
 未配置密钥时，首页会提示；导入和问答会失败。
 
+## 用 Langfuse 看运行过程
+
+本机 `/admin` 是自建观测后台。要看 **LangGraph 节点树 + 每次 LLM 的完整 prompt/completion**，用 [Langfuse](https://langfuse.com)。
+
+1. 打开 https://cloud.langfuse.com 注册（欧盟默认；美区用 https://us.cloud.langfuse.com）。
+2. 创建一个项目，进入 **Project Settings → API Keys**，复制 Public Key（`pk-lf-…`）和 Secret Key（`sk-lf-…`）。
+3. 写入 `backend/.env`：
+
+```bash
+LANGFUSE_PUBLIC_KEY=pk-lf-你的公钥
+LANGFUSE_SECRET_KEY=sk-lf-你的私钥
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+LANGFUSE_ENVIRONMENT=development
+```
+
+4. 重启后端。启动日志应出现 `Langfuse 认证成功`。观测后台左下角也会显示「Langfuse 已开启」。
+5. 在产品里做一次问答或导入，然后到 Langfuse 左侧 **Tracing**。
+
+你会看到：
+
+- **Trace 名称**：`chat` / `ingest` / `studio`
+- **Session**：按笔记本 id 聚合同一本里的多次调用
+- **树**：`chat_graph` → `choose_mode` / `generate` / `finalize` → `ChatOpenAI`（完整 messages 与输出）
+- Tags：`notebooklm-lite`、`chat`
+
+自托管：把官方 docker compose 起在本机后，把 `LANGFUSE_BASE_URL` 改成 `http://localhost:3000`。
+
+LangSmith 仍可用（`LANGSMITH_TRACING=true`），与 Langfuse、本机后台互不影响。
+
 ## 测试
 
 ```bash

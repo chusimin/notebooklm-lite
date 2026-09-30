@@ -45,4 +45,5 @@ tests/                 pytest
 - **导入**：上传接口立即返回 `status=processing`，`asyncio.create_task` 后台执行 `load → split → embed → summarize → save`；失败写 `failed` 与中文 `error`。服务重启时遗留的 processing 资料会被标为失败。
 - **问答**：资料总字数 ≤ `FULL_CONTEXT_MAX_CHARS` 走 full 模式（跳过改写与检索），否则 rag 模式（改写 → 混合检索 top8）。引用统一规范为 `[1][2]`，越界编号丢弃，citations 只含正文实际出现的编号。
 - **观测**：每次调用一条 run；节点、LLM、检索、向量化分别记 span。run 的 token/成本只累加 llm + embedding 叶子 span；node span 上显示其子孙合计。成本按 `.env` 单价估算。
+- **Langfuse（可选）**：`.env` 填入 `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` 后，LangGraph 调用通过 `CallbackHandler` 上报。Trace 名为 `chat`/`ingest`/`studio`，session 为笔记本 id。详见仓库根 README。
 - **LangSmith（可选）**：`.env` 中设置 `LANGSMITH_TRACING=true` 与 `LANGSMITH_API_KEY`（可选 `LANGSMITH_PROJECT`），启动时会导出到环境变量，LangChain / LangGraph 自带追踪即生效，无需额外代码；自建追踪不受影响。
