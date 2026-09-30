@@ -27,7 +27,7 @@ cd backend
 cp .env.example .env
 ```
 
-编辑 `.env`，填入 OpenRouter（或任意 OpenAI 兼容接口）的 `LLM_API_KEY` 与 `EMBEDDING_API_KEY`。默认模型：
+编辑 `.env`，填入 OpenRouter（或任意 OpenAI 兼容接口）的 `LLM_API_KEY` 与 `EMBEDDING_API_KEY`。请勿把 `.env` 或 `backend/data/` 提交到 git。默认模型：
 
 - 主回答：`deepseek/deepseek-v3.2`
 - 改写 / 概要：`qwen/qwen3-next-80b-a3b-instruct`
@@ -51,7 +51,7 @@ npm install
 npm run dev
 ```
 
-打开 http://localhost:5173
+打开 http://localhost:5173（请用 `npm run dev`，产品依赖开发代理把 `/api` 转到后端）。
 
 ## 第一次怎么用
 
@@ -62,6 +62,8 @@ npm run dev
 5. 顶栏进入「观测后台」，看这次问答的瀑布图、节点耗时和成本。
 
 未配置密钥时，首页会提示；导入和问答会失败。
+
+这是本机个人工具：后端默认只监听本机，观测后台 `/admin` 没有登录。不要把 `8765` 端口暴露到公网。
 
 ## 用 Langfuse 看运行过程
 

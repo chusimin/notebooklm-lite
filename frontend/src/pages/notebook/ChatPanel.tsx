@@ -48,6 +48,7 @@ export function ChatPanel({
   const [citation, setCitation] = useState<Citation | null>(null)
   const [clearing, setClearing] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const genRef = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickRef = useRef(true)
 
@@ -113,35 +114,48 @@ export function ChatPanel({
       })
       setPending({ question: q, steps: [], text: '', error: null })
 
+      const gen = ++genRef.current
+      const alive = () => gen === genRef.current
       const ac = new AbortController()
       abortRef.current = ac
       await streamChat(
         notebookId,
         { question: q, source_ids: scope.sourceIds },
         {
-          onUserMessage: (m) =>
+          onUserMessage: (m) => {
+            if (!alive()) return
             setMessages((l) => {
               const list = l ?? []
               if (list.some((x) => x.id === m.id)) return list
               return list.map((x) => (x.id === tempId ? m : x))
-            }),
-          onStep: (s) =>
+            })
+          },
+          onStep: (s) => {
+            if (!alive()) return
             setPending((p) => {
               if (!p) return p
               const i = p.steps.findIndex((x) => x.node === s.node)
               const steps = i >= 0 ? p.steps.map((x, j) => (j === i ? { ...x, ...s, label: s.label || x.label } : x)) : [...p.steps, s]
               return { ...p, steps }
-            }),
-          onToken: (t) => setPending((p) => (p ? { ...p, text: p.text + t } : p)),
+            })
+          },
+          onToken: (t) => {
+            if (!alive()) return
+            setPending((p) => (p ? { ...p, text: p.text + t } : p))
+          },
           onDone: (m) => {
+            if (!alive()) return
             setMessages((l) => [...(l ?? []), m])
             setPending(null)
           },
-          onError: (msg) => setPending((p) => (p ? { ...p, error: msg } : { question: q, steps: [], text: '', error: msg })),
+          onError: (msg) => {
+            if (!alive()) return
+            setPending((p) => (p ? { ...p, error: msg } : { question: q, steps: [], text: '', error: msg }))
+          },
         },
         ac.signal,
       )
-      abortRef.current = null
+      if (alive()) abortRef.current = null
     },
     [notebookId, scope, streaming, toast],
   )
@@ -150,17 +164,30 @@ export function ChatPanel({
     onRegisterAsk?.(send)
   }, [onRegisterAsk, send])
 
-  /** 停止生成：中断流，保留已生成的部分作为提示 */
+  /** 停止生成：丢弃本轮回调，避免后端稍后写完仍把 done 塞进 UI */
   const stop = () => {
+    genRef.current += 1
     abortRef.current?.abort()
     abortRef.current = null
     setPending((p) => (p ? { ...p, error: '已停止生成' } : p))
   }
 
-  /** 重试：重新发送上一次失败的问题；用户消息已在库中，由后端复用 */
-  const retry = () => {
+  /** 重试：先拉服务端消息。停止时图可能已落库，避免再跑一轮导致重复助手消息。 */
+  const retry = async () => {
     if (!pending) return
     const q = pending.question
+    try {
+      const latest = await api.listMessages(notebookId)
+      setMessages(latest)
+      const last = latest[latest.length - 1]
+      const prev = latest.length >= 2 ? latest[latest.length - 2] : null
+      if (last?.role === 'assistant' && prev?.role === 'user' && prev.content === q) {
+        setPending(null)
+        return
+      }
+    } catch {
+      /* 拉历史失败时仍按原问题重试 */
+    }
     setPending(null)
     send(q)
   }

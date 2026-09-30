@@ -126,6 +126,18 @@ def test_chat_error_event(client, fake_models):
     assert msgs[0]["id"] == events[0][1]["id"]
 
 
+def test_chat_does_not_reuse_user_after_assistant_exists(client):
+    """停止后若图已 finalize，库里已有助手消息；再问同一句应新开一轮，而不是复用。"""
+    nb, _ = _setup(client)
+    first = _chat(client, nb["id"], "猫喜欢吃什么？")
+    assert first[-1][0] == "done"
+    second = _chat(client, nb["id"], "猫喜欢吃什么？")
+    assert second[-1][0] == "done"
+    msgs = client.get(f"/api/notebooks/{nb['id']}/messages").json()
+    assert [m["role"] for m in msgs] == ["user", "assistant", "user", "assistant"]
+    assert msgs[0]["id"] != msgs[2]["id"]
+
+
 def test_feedback_writes_run(client):
     nb, _ = _setup(client)
     done = _chat(client, nb["id"], "猫喜欢吃什么？")[-1][1]

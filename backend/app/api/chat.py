@@ -9,10 +9,11 @@ SSE 事件顺序：user_message → step(start/end)… → token… → done；�
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app import repo
@@ -58,7 +59,7 @@ def feedback(message_id: str, body: FeedbackIn):
 
 
 @router.post("/notebooks/{notebook_id}/chat")
-async def chat(notebook_id: str, body: ChatIn):
+async def chat(notebook_id: str, body: ChatIn, request: Request):
     require_notebook(notebook_id)
     question = body.question.strip()
     if not question:
@@ -100,6 +101,9 @@ async def chat(notebook_id: str, body: ChatIn):
                 async for mode, chunk in chat_graph.astream(
                     state, trace_config(run), stream_mode=["messages", "custom", "values"]
                 ):
+                    # 用户点「停止」后尽快结束图，减少后台继续 finalize 再重试导致重复回答
+                    if await request.is_disconnected():
+                        return
                     if mode == "custom":
                         if isinstance(chunk, dict) and chunk.get("type") == "step":
                             yield sse("step", {"node": chunk["node"], "status": chunk["status"], "label": chunk["label"]})
@@ -111,10 +115,14 @@ async def chat(notebook_id: str, body: ChatIn):
                                 yield sse("token", {"text": text})
                     elif mode == "values":
                         final = chunk
+            if await request.is_disconnected():
+                return
             message = final.get("message")
             if not message:
                 raise RuntimeError("未生成回答消息")
             yield sse("done", message)
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             logger.exception("问答失败 notebook=%s", notebook_id)
             yield sse("error", {"message": f"回答生成失败：{model_error_text(exc)}"})

@@ -15,8 +15,17 @@ import { Segmented } from '../../components/Segmented'
 import { useToast } from '../../components/Toast'
 
 type Tab = 'file' | 'url' | 'text'
-const ACCEPT = ['.pdf', '.txt', '.md']
+const ACCEPT = ['.pdf', '.txt', '.md', '.markdown']
 const MAX_BYTES = 20 * 1024 * 1024
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value.trim())
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 export function AddSourceModal({
   open,
@@ -74,9 +83,9 @@ export function AddSourceModal({
     pickFiles(e.dataTransfer.files)
   }
 
-  const urlValid = /^https?:\/\/\S+\.\S+/i.test(url.trim())
+  const urlValid = isHttpUrl(url)
   const canSubmit =
-    !busy && (tab === 'file' ? files.length > 0 : tab === 'url' ? urlValid : title.trim() !== '' && content.trim() !== '')
+    !busy && (tab === 'file' ? files.length > 0 : tab === 'url' ? urlValid : content.trim() !== '')
 
   const submit = async () => {
     setBusy(true)
@@ -222,7 +231,9 @@ export function AddSourceModal({
       {tab === 'text' && (
         <div className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-ink-600">标题</label>
+            <label className="mb-1.5 block text-xs font-medium text-ink-600">
+              标题 <span className="font-normal text-ink-450">选填，空着会用正文第一行</span>
+            </label>
             <input
               autoFocus
               className="input"

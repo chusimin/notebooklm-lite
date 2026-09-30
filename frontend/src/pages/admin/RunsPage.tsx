@@ -26,7 +26,7 @@ export default function RunsPage() {
   const [params, setParams] = useSearchParams()
   const kind = (params.get('kind') ?? '') as RunKind | ''
   const status = (params.get('status') ?? '') as RunStatus | ''
-  const page = Math.max(1, Number(params.get('page') ?? 1))
+  const page = Math.max(1, Number.parseInt(params.get('page') || '1', 10) || 1)
 
   const [data, setData] = useState<{ items: Run[]; total: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
