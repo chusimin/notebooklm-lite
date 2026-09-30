@@ -1,0 +1,33 @@
+[project]
+name = "notebooklm-lite-backend"
+version = "0.1.0"
+description = "NotebookLM Lite 后端：FastAPI + LangGraph 个人知识笔记本"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.142.1",
+    "httpx>=0.28.1",
+    "jieba>=0.42.1",
+    "langchain-core>=1.6.6",
+    "langchain-openai>=1.6.6",
+    "langchain-text-splitters>=1.1.2",
+    "langgraph>=1.2.12",
+    "numpy>=2.5.3",
+    "pydantic-settings>=2.15.0",
+    "pypdf>=6.19.0",
+    "python-multipart>=0.0.32",
+    "rank-bm25>=0.2.2",
+    "trafilatura>=2.2.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::SyntaxWarning", "ignore::DeprecationWarning"]
