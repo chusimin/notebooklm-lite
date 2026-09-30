@@ -64,6 +64,9 @@ export default function AdminLayout() {
                 <span className="flex items-center gap-1.5 text-ink-600">
                   <span className="h-1.5 w-1.5 rounded-full bg-ok" /> 后端运行中
                 </span>
+                {(!health.llm_configured || !health.embedding_configured) && (
+                  <div className="mt-1 text-danger">未配置 API Key，导入/问答不可用</div>
+                )}
                 <div className="mt-1 truncate" title={health.model}>
                   模型 {health.model}
                 </div>

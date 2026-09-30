@@ -64,7 +64,13 @@ api = APIRouter(prefix="/api")
 
 @api.get("/health")
 def health():
-    return {"ok": True, "model": settings.llm_model, "embedding_model": settings.embedding_model}
+    return {
+        "ok": True,
+        "model": settings.llm_model,
+        "embedding_model": settings.embedding_model,
+        "llm_configured": bool(settings.llm_api_key.strip()),
+        "embedding_configured": bool(settings.embedding_api_key.strip()),
+    }
 
 
 for module in (notebooks, sources, chat, notes, admin):

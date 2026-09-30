@@ -33,11 +33,13 @@ export function ChatPanel({
   sources,
   scope,
   onNoteCreated,
+  onRegisterAsk,
 }: {
   notebookId: string
   sources: Source[]
   scope: Scope
   onNoteCreated: (n: Note) => void
+  onRegisterAsk?: (ask: (q: string) => void) => void
 }) {
   const toast = useToast()
   const [messages, setMessages] = useState<Message[] | null>(null)
@@ -102,8 +104,13 @@ export function ChatPanel({
         feedback: 0,
         created_at: new Date().toISOString(),
       }
-      // 若上一次失败，清掉失败的本地提问，避免重复
-      setMessages((l) => [...(l ?? []).filter((m) => !m.id.startsWith('local-')), optimistic])
+      setMessages((l) => {
+        const list = (l ?? []).filter((m) => !m.id.startsWith('local-'))
+        const last = list[list.length - 1]
+        // 失败重试：服务端会复用最后一条未配对的用户消息，本地不再插一条
+        if (last && last.role === 'user' && last.content === q) return list
+        return [...list, optimistic]
+      })
       setPending({ question: q, steps: [], text: '', error: null })
 
       const ac = new AbortController()
@@ -112,7 +119,12 @@ export function ChatPanel({
         notebookId,
         { question: q, source_ids: scope.sourceIds },
         {
-          onUserMessage: (m) => setMessages((l) => (l ?? []).map((x) => (x.id === tempId ? m : x))),
+          onUserMessage: (m) =>
+            setMessages((l) => {
+              const list = l ?? []
+              if (list.some((x) => x.id === m.id)) return list
+              return list.map((x) => (x.id === tempId ? m : x))
+            }),
           onStep: (s) =>
             setPending((p) => {
               if (!p) return p
@@ -134,6 +146,10 @@ export function ChatPanel({
     [notebookId, scope, streaming, toast],
   )
 
+  useEffect(() => {
+    onRegisterAsk?.(send)
+  }, [onRegisterAsk, send])
+
   /** 停止生成：中断流，保留已生成的部分作为提示 */
   const stop = () => {
     abortRef.current?.abort()
@@ -141,16 +157,10 @@ export function ChatPanel({
     setPending((p) => (p ? { ...p, error: '已停止生成' } : p))
   }
 
-  /** 重试：重新发送上一次失败的问题 */
+  /** 重试：重新发送上一次失败的问题；用户消息已在库中，由后端复用 */
   const retry = () => {
     if (!pending) return
     const q = pending.question
-    // 移除尾部失败的那条提问，重新发送后会由新的 user_message 补回
-    setMessages((l) => {
-      const list = l ?? []
-      const last = list[list.length - 1]
-      return last && last.role === 'user' && last.content === q ? list.slice(0, -1) : list
-    })
     setPending(null)
     send(q)
   }

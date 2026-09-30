@@ -30,6 +30,7 @@ export function SourcesPanel({
   onToggleAll,
   onAdded,
   onRemoved,
+  onAsk,
 }: {
   notebookId: string
   sources: Source[]
@@ -39,6 +40,7 @@ export function SourcesPanel({
   onToggleAll: (on: boolean) => void
   onAdded: (s: Source) => void
   onRemoved: (id: string) => void
+  onAsk?: (q: string) => void
 }) {
   const toast = useToast()
   const [adding, setAdding] = useState(false)
@@ -101,6 +103,7 @@ export function SourcesPanel({
                 onToggleExpand={() => setExpanded(expanded === s.id ? null : s.id)}
                 onCheck={(v) => onToggle(s.id, v)}
                 onDelete={() => setDeleting(s)}
+                onAsk={onAsk}
               />
             ))}
           </ul>
@@ -134,6 +137,7 @@ function SourceItem({
   onToggleExpand,
   onCheck,
   onDelete,
+  onAsk,
 }: {
   source: Source
   checked: boolean
@@ -141,6 +145,7 @@ function SourceItem({
   onToggleExpand: () => void
   onCheck: (v: boolean) => void
   onDelete: () => void
+  onAsk?: (q: string) => void
 }) {
   const ready = s.status === 'ready'
   return (
@@ -201,6 +206,24 @@ function SourceItem({
                 <ChevronDown size={11} /> 资料概要
               </div>
               <p className="text-xs leading-5 text-ink-700">{s.summary || '暂无概要'}</p>
+              {s.suggested_questions.length > 0 && onAsk && (
+                <div className="mt-2 space-y-1">
+                  {s.suggested_questions.slice(0, 3).map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAsk(q)
+                      }}
+                      className="block w-full truncate rounded-md px-1.5 py-1 text-left text-[11.5px] text-ink-600 transition-colors hover:bg-white hover:text-ink"
+                      title={q}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="mt-2 text-[11px] text-ink-450">
                 {s.chunk_count} 个片段 · {fmtChars(s.char_count)}
               </div>

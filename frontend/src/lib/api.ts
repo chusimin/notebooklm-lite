@@ -154,7 +154,13 @@ export type Overview = {
   by_model: { model: string; calls: number; tokens: number; cost_usd: number }[]
 }
 
-export type Health = { ok: boolean; model: string; embedding_model: string }
+export type Health = {
+  ok: boolean
+  model: string
+  embedding_model: string
+  llm_configured: boolean
+  embedding_configured: boolean
+}
 
 /** 5.3 SSE step 事件 */
 export type StepEvent = { node: string; status: 'start' | 'end'; label: string }

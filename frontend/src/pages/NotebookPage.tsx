@@ -9,9 +9,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Activity, ArrowLeft, Check, Pencil } from 'lucide-react'
+import { Activity, ArrowLeft, Check, FileText, MessageSquare, NotebookPen, Pencil } from 'lucide-react'
 import { api, type Note, type Notebook, type Source } from '../lib/api'
 import { errMsg } from '../lib/http'
+import { cn } from '../lib/cn'
 import { LogoMark } from '../components/Logo'
 import { LoadingBlock } from '../components/Spinner'
 import { EmptyState } from '../components/EmptyState'
@@ -42,6 +43,8 @@ export default function NotebookPage() {
   const [sources, setSources] = useState<Source[] | null>(null)
   const [notes, setNotes] = useState<Note[] | null>(null)
   const [deselected, setDeselected] = useState<Set<string>>(new Set())
+  const [tab, setTab] = useState<'sources' | 'chat' | 'studio'>('chat')
+  const askRef = useRef<(q: string) => void>(() => {})
 
   // ───── 初始加载 ─────
   useEffect(() => {
@@ -139,8 +142,36 @@ export default function NotebookPage() {
       {!notebook || sources === null ? (
         <LoadingBlock className="flex-1" />
       ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex h-11 shrink-0 border-b border-line lg:hidden">
+          {(
+            [
+              ['sources', '资料', FileText],
+              ['chat', '对话', MessageSquare],
+              ['studio', '工作室', NotebookPen],
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-1.5 text-[13px] font-medium transition-colors',
+                tab === key ? 'border-b-2 border-ink text-ink' : 'text-ink-450',
+              )}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex min-h-0 flex-1">
-          <aside className="flex w-[300px] shrink-0 flex-col border-r border-line">
+          <aside
+            className={cn(
+              'flex-col border-r border-line',
+              tab === 'sources' ? 'flex min-w-0 flex-1 flex-col' : 'hidden',
+              'lg:flex lg:w-[300px] lg:flex-none lg:flex-col',
+            )}
+          >
             <SourcesPanel
               notebookId={id}
               sources={sources}
@@ -150,14 +181,39 @@ export default function NotebookPage() {
               onToggleAll={toggleAll}
               onAdded={addSource}
               onRemoved={removeSource}
+              onAsk={(q) => {
+                setTab('chat')
+                askRef.current(q)
+              }}
             />
           </aside>
-          <main className="flex min-w-0 flex-1 flex-col">
-            <ChatPanel notebookId={id} sources={sources} scope={scope} onNoteCreated={addNote} />
+          <main
+            className={cn(
+              'min-w-0 flex-col',
+              tab === 'chat' ? 'flex min-w-0 flex-1 flex-col' : 'hidden',
+              'lg:flex lg:min-w-0 lg:flex-1 lg:flex-col',
+            )}
+          >
+            <ChatPanel
+              notebookId={id}
+              sources={sources}
+              scope={scope}
+              onNoteCreated={addNote}
+              onRegisterAsk={(fn) => {
+                askRef.current = fn
+              }}
+            />
           </main>
-          <aside className="flex w-[340px] shrink-0 flex-col border-l border-line">
+          <aside
+            className={cn(
+              'flex-col border-l border-line',
+              tab === 'studio' ? 'flex min-w-0 flex-1 flex-col' : 'hidden',
+              'lg:flex lg:w-[340px] lg:flex-none lg:flex-col',
+            )}
+          >
             <StudioPanel notebookId={id} notes={notes} scope={scope} onCreated={addNote} onRemoved={removeNote} />
           </aside>
+        </div>
         </div>
       )}
     </div>

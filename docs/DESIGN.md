@@ -16,6 +16,31 @@
 - 包含：笔记本管理；资料导入（PDF、TXT/Markdown、网页链接、粘贴文本）；资料概要与推荐问题；带引用的流式问答（点击角标查看原文）；勾选资料限定问答范围；回答存为笔记；工作室生成简报 / 学习指南 / FAQ；回答点赞/点踩；观测后台（总览、节点耗时、调用列表、单次调用瀑布图与详情）。
 - 不包含（后续迭代）：音频播客、视频/音频资料、思维导图、多用户、云部署。
 
+## 1.5 界面与体验
+
+### 布局
+- **产品首页**：卡片网格列出笔记本；顶栏右侧进入观测后台。
+- **工作台**（桌面）：三栏 `资料 300px | 对话自适应 | 工作室 340px`。资料栏勾选范围，对话栏流式回答，工作室生成简报/学习指南/FAQ 并保存笔记。
+- **工作台**（窄屏）：顶部分段切换「资料 / 对话 / 工作室」，默认落在对话。
+- **观测后台**：左侧 220px 导航（总览 / 调用记录）+ 右侧内容；调用详情为瀑布图 + 节点输入输出。
+
+### 体验路径
+1. 新建笔记本 → 添加 PDF / 文本 / 网页。
+2. 资料变为就绪后，看到概要与推荐问题。
+3. 提问 → 流式回答 → 点击 `[1]` 打开原文抽屉。
+4. 把回答存为笔记，或在工作室一键生成简报。
+5. 打开观测后台，看到这次调用的节点耗时、token、成本；点进详情看瀑布图。
+
+失败重试：同一问题失败后再次发送，**复用已写入的用户消息**，不在库里堆重复提问。
+
+### 视觉
+对标 Google NotebookLM 的工作台气质：纯白底、柔黑文字、系统字体、细描边、少装饰。这是长时间对着资料工作的界面，不是杂志封面，因此不用奶油色 bento。
+
+观测后台同一套黑白灰 token，用图表和瀑布图表达密度，不用彩色仪表盘。
+
+### 观测（自建 LangSmith-lite）
+每次 ingest / chat / studio 写一条 `run`，节点、LLM、检索、向量化写 `span`。不依赖 LangSmith 账号即可看链路；可选打开 `LANGSMITH_TRACING` 同步到云端。
+
 ## 2. 技术架构
 
 ```text
@@ -34,7 +59,7 @@
 
 ### 关键选型
 
-- **模型**：OpenAI 兼容接口（`langchain-openai` 的 `ChatOpenAI`），默认 OpenRouter 的 `deepseek/deepseek-chat`，可通过 `.env` 切换任意兼容模型。
+- **模型**：OpenAI 兼容接口（`langchain-openai` 的 `ChatOpenAI`），默认 OpenRouter 的 `deepseek/deepseek-v3.2`（主回答）+ `qwen/qwen3-next-80b-a3b-instruct`（改写、概要等轻量任务），可通过 `.env` 切换任意兼容模型。选型依据是实测首字延迟：deepseek-chat 约 7.7s，deepseek-v3.2 约 2s，qwen3-next 约 1s。
 - **向量化**：`openai/text-embedding-3-small`（经 OpenRouter）。
 - **向量存储**：SQLite 存 float32 向量 + numpy 余弦相似度。个人规模（< 10 万片段）足够，零运维。
 - **关键词检索**：jieba 分词 + BM25，与向量检索用 RRF 融合。
@@ -165,7 +190,7 @@ type Span = {
 | POST | `/notebooks/{id}/notes` | body `{kind, title, content}` → `Note` |
 | DELETE | `/notes/{id}` | `{ok:true}` |
 | POST | `/notebooks/{id}/studio` | body `{kind: "briefing"\|"study_guide"\|"faq", source_ids: string[] \| null}` → `Note`（同步，可能 10–60 秒） |
-| GET | `/health` | `{ok:true, model, embedding_model}` |
+| GET | `/health` | `{ok:true, model, embedding_model, llm_configured, embedding_configured}` |
 
 ### 5.3 问答 SSE 事件
 

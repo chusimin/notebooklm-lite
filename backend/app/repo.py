@@ -305,6 +305,16 @@ def recent_history(notebook_id: str, limit: int = 6) -> list[dict]:
     return [_message(r) for r in reversed(rows)]
 
 
+def last_message(notebook_id: str) -> dict | None:
+    """该笔记本最后一条消息；用于失败重试时复用未配对的用户提问。"""
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM messages WHERE notebook_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+            (notebook_id,),
+        ).fetchone()
+    return _message(row) if row else None
+
+
 def clear_messages(notebook_id: str) -> None:
     with connect() as conn:
         conn.execute("DELETE FROM messages WHERE notebook_id = ?", (notebook_id,))

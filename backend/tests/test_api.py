@@ -21,7 +21,10 @@ def _add_text(client, nb_id, content=SAMPLE_TEXT, title="动物资料"):
 
 def test_health(client):
     r = client.get("/api/health").json()
-    assert r["ok"] is True and "model" in r and "embedding_model" in r
+    assert r["ok"] is True
+    assert "model" in r and "embedding_model" in r
+    assert "llm_configured" in r and "embedding_configured" in r
+    assert isinstance(r["llm_configured"], bool)
 
 
 def test_notebook_crud(client):

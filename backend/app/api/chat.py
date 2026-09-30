@@ -66,10 +66,20 @@ async def chat(notebook_id: str, body: ChatIn):
     if len(question) > QUESTION_MAX:
         raise HTTPException(status_code=400, detail=f"问题不能超过 {QUESTION_MAX} 字")
 
-    # 先取历史再写入本次提问，历史中不包含当前问题
-    history = [{"role": m["role"], "content": m["content"]} for m in repo.recent_history(notebook_id, HISTORY_LIMIT)]
+    # 先取历史再写入本次提问，历史中不包含当前问题。
+    # 若上一次同一问题失败（库里最后一条就是这条 user 消息），复用它，避免重试堆重复提问。
+    last = repo.last_message(notebook_id)
+    reuse_user = bool(last and last["role"] == "user" and last["content"] == question)
+    if reuse_user:
+        user_msg = last
+        history_rows = [m for m in repo.recent_history(notebook_id, HISTORY_LIMIT + 1) if m["id"] != last["id"]][
+            -HISTORY_LIMIT:
+        ]
+    else:
+        history_rows = repo.recent_history(notebook_id, HISTORY_LIMIT)
+        user_msg = repo.create_message(notebook_id, "user", question)
+    history = [{"role": m["role"], "content": m["content"]} for m in history_rows]
     sources = repo.resolve_ready_sources(notebook_id, body.source_ids)
-    user_msg = repo.create_message(notebook_id, "user", question)
 
     async def event_stream():
         yield sse("user_message", user_msg)

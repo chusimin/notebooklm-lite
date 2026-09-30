@@ -115,6 +115,16 @@ def test_chat_error_event(client, fake_models):
     runs = client.get("/api/admin/runs?kind=chat").json()["items"]
     assert runs[0]["status"] == "error"
 
+    # 失败后重试同一问题：复用用户消息，不堆重复提问
+    msgs = client.get(f"/api/notebooks/{nb['id']}/messages").json()
+    assert [m["role"] for m in msgs] == ["user"]
+    fake_models["responder"] = None
+    events2 = _chat(client, nb["id"], "问题")
+    assert events2[-1][0] == "done"
+    msgs = client.get(f"/api/notebooks/{nb['id']}/messages").json()
+    assert [m["role"] for m in msgs] == ["user", "assistant"]
+    assert msgs[0]["id"] == events[0][1]["id"]
+
 
 def test_feedback_writes_run(client):
     nb, _ = _setup(client)

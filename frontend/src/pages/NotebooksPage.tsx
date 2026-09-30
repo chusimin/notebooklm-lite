@@ -16,6 +16,7 @@ import { EmptyState } from '../components/EmptyState'
 import { Menu } from '../components/Menu'
 import { Logo } from '../components/Logo'
 import { useToast } from '../components/Toast'
+import { KeyBanner } from '../components/KeyBanner'
 
 export default function NotebooksPage() {
   const toast = useToast()
@@ -37,6 +38,7 @@ export default function NotebooksPage() {
 
   return (
     <div className="min-h-full bg-white">
+      <KeyBanner />
       {/* 顶栏 */}
       <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">

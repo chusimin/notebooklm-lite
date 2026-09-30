@@ -24,9 +24,9 @@ class Settings(BaseSettings):
     # ---- 对话模型（OpenAI 兼容接口，默认 OpenRouter）----
     llm_base_url: str = "https://openrouter.ai/api/v1"
     llm_api_key: str = ""
-    llm_model: str = "deepseek/deepseek-chat"
+    llm_model: str = "deepseek/deepseek-v3.2"
     # 轻量任务（改写问题、资料概要）使用的快模型
-    llm_fast_model: str = "deepseek/deepseek-chat"
+    llm_fast_model: str = "qwen/qwen3-next-80b-a3b-instruct"
 
     # ---- 向量化模型 ----
     embedding_base_url: str = "https://openrouter.ai/api/v1"
