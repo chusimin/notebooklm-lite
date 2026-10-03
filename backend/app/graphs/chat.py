@@ -163,6 +163,7 @@ async def finalize(state: ChatState) -> dict:
                 for i, c in enumerate(contexts, start=1)
             ],
             "answer": content,
+            "raw_answer": raw_answer,  # 演示里把越界编号原地划掉
             "cited": [c["index"] for c in citations],
             "dropped": [n for n in raw_nums if not 1 <= n <= len(contexts)],
         }

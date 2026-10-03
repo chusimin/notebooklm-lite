@@ -55,6 +55,17 @@ def test_ingest_records_snapshot(client):
     assert data["chunk_size"] == 800 and data["dim"] == 64
     c = data["chunks"][0]
     assert c["text"] and len(c["xy"]) == 2 and isinstance(c["keywords"], list)
+    assert data["neighbors"] == []  # 笔记本里只有这一份资料
+
+    # 第二份资料入库时，第一份的卡片作为邻居一起投影
+    src2 = client.post(
+        f"/api/notebooks/{nb['id']}/sources/text", json={"title": "第二份", "content": SAMPLE_TEXT + "再加一句。"}
+    ).json()
+    wait_source_ready(client, nb["id"], src2["id"])
+    latest = client.get("/api/admin/flows", params={"kind": "ingest"}).json()[0]
+    d2 = client.get(f"/api/admin/flows/{latest['run_id']}").json()["data"]
+    assert d2["title"] == "第二份" and len(d2["neighbors"]) == data["chunk_count"]
+    assert d2["neighbors"][0]["source_title"] == "动物资料"
     assert [n["name"] for n in d["nodes"]] == ["load", "split", "embed", "summarize", "save"]
 
 
@@ -69,6 +80,7 @@ def test_chat_full_mode_snapshot(client):
     assert len(data["contexts"]) == 1
     assert data["cited"] == [1] and data["dropped"] == [2, 99]
     assert data["answer"].startswith("根据资料")
+    assert "[99]" in data["raw_answer"]
 
 
 def test_chat_force_rag_snapshot(client):

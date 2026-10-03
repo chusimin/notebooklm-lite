@@ -160,15 +160,30 @@ async def save_node(state: IngestState) -> dict:
 
 
 FLOW_MAX_CHUNKS = 200
+FLOW_MAX_NEIGHBORS = 300
 
 
 def _record_flow(state: IngestState) -> None:
-    """写入演示回放快照：切片全文、词签、二维坐标与切分参数。"""
+    """写入演示回放快照：切片全文、词签、二维坐标与切分参数。
+
+    同一笔记本里已入库的其他卡片作为"邻居"一起投影：
+    只有两三张卡片时地图没有参照，看不出"意思相近落得近"。
+    """
     from app.observability import flow
 
     chunks = state["chunks"][:FLOW_MAX_CHUNKS]
     vectors = np.asarray(state["vectors"])[: len(chunks)]
-    coords, _ = flow.project_2d(vectors)
+    other_ids = [
+        s["id"] for s in repo.list_sources(state["notebook_id"]) if s["status"] == "ready" and s["id"] != state["source_id"]
+    ]
+    neighbors = [
+        c
+        for c in repo.load_chunks(other_ids, with_embedding=True)
+        if c.get("embedding") is not None and c["embedding"].shape[-1] == vectors.shape[-1]
+    ][:FLOW_MAX_NEIGHBORS]
+    matrix = np.vstack([vectors, *[n["embedding"][None, :] for n in neighbors]]) if neighbors else vectors
+    all_coords, _ = flow.project_2d(matrix)
+    coords, neighbor_coords = all_coords[: len(chunks)], all_coords[len(chunks) :]
     flow.record(
         {
             "title": state.get("title"),
@@ -182,6 +197,7 @@ def _record_flow(state: IngestState) -> None:
                 {"id": c["id"], "idx": c["idx"], "page": c.get("page"), "text": c["text"], "keywords": flow.keywords(c["text"]), "xy": xy}
                 for c, xy in zip(chunks, coords)
             ],
+            "neighbors": [{"source_title": n["source_title"], "xy": xy} for n, xy in zip(neighbors, neighbor_coords)],
         }
     )
 
