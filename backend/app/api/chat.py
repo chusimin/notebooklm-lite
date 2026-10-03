@@ -93,8 +93,14 @@ async def chat(notebook_id: str, body: ChatIn, request: Request):
             "question": question,
             "sources": [{"id": s["id"], "title": s["title"], "char_count": s["char_count"]} for s in sources],
             "history": history,
+            "force_rag": body.force_rag,
         }
-        run_input = {"question": question, "source_ids": body.source_ids, "history_count": len(history)}
+        run_input = {
+            "question": question,
+            "source_ids": body.source_ids,
+            "history_count": len(history),
+            "force_rag": body.force_rag,
+        }
         try:
             final: dict = {}
             async with start_run("chat", notebook_id, run_input) as run:

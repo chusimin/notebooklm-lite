@@ -112,6 +112,14 @@ CREATE TABLE IF NOT EXISTS spans (
 );
 CREATE INDEX IF NOT EXISTS idx_spans_run ON spans(run_id, started_at);
 CREATE INDEX IF NOT EXISTS idx_spans_started ON spans(started_at);
+
+-- RAG 流转演示的回放快照（docs/RAG_FLOW_DEMO.md），与 runs 一起级联删除
+CREATE TABLE IF NOT EXISTS flow_snapshots (
+    run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    data_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 

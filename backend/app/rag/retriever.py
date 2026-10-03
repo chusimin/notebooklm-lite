@@ -112,4 +112,61 @@ async def hybrid_search(query: str, chunks: list[dict], top_n: int = FINAL_TOP_N
                 "bm25_hits": [_hit_summary(by_id[i], s) for i, s in bm25_hits[:10]],
                 "fused": [_hit_summary(h, h["score"]) for h in hits],
             }
+            _record_flow(query, query_vec, chunks, vec_hits, bm25_hits, fused)
     return hits
+
+
+def _record_flow(
+    query: str,
+    query_vec: np.ndarray,
+    chunks: list[dict],
+    vec_hits: list[tuple[str, float]],
+    bm25_hits: list[tuple[str, float]],
+    fused: list[tuple[str, float]],
+) -> None:
+    """写入演示回放快照：候选片段二维坐标、问题坐标、两路完整排名与融合明细。"""
+    from app.observability import flow
+
+    hit_ids = {i for i, _ in vec_hits} | {i for i, _ in bm25_hits}
+    points = [c for c in chunks if c.get("embedding") is not None]
+    if len(points) > flow.MAX_POINTS:
+        keep = [c for c in points if c["id"] in hit_ids]
+        rest = [c for c in points if c["id"] not in hit_ids]
+        step = max(1, len(rest) // max(1, flow.MAX_POINTS - len(keep)))
+        points = keep + rest[::step][: flow.MAX_POINTS - len(keep)]
+    coords, qxy = flow.project_2d(np.vstack([c["embedding"] for c in points]), query_vec) if points else ([], None)
+
+    q_tokens = tokenize(query)
+    q_set = set(q_tokens)
+    vec_rank = {i: r for r, (i, _) in enumerate(vec_hits, start=1)}
+    bm25_rank = {i: r for r, (i, _) in enumerate(bm25_hits, start=1)}
+    by_id = {c["id"]: c for c in chunks}
+    flow.record(
+        {
+            "query": query,
+            "query_tokens": list(dict.fromkeys(q_tokens)),
+            "query_xy": qxy,
+            "candidate_count": len(chunks),
+            "chunks": [
+                {
+                    "id": c["id"],
+                    "source_id": c["source_id"],
+                    "source_title": c["source_title"],
+                    "idx": c["idx"],
+                    "text": c["text"][:400],
+                    "xy": xy,
+                }
+                for c, xy in zip(points, coords)
+            ],
+            "vector": [{"id": i, "score": round(s, 4)} for i, s in vec_hits],
+            "bm25": [
+                {"id": i, "score": round(s, 3), "matched": sorted(q_set.intersection(tokenize(by_id[i]["text"])))}
+                for i, s in bm25_hits
+            ],
+            "fused": [
+                {"id": i, "score": round(s, 5), "vector_rank": vec_rank.get(i), "bm25_rank": bm25_rank.get(i)}
+                for i, s in fused
+            ],
+            "params": {"vector_top_k": VECTOR_TOP_K, "bm25_top_k": BM25_TOP_K, "rrf_k": RRF_K, "top_n": len(fused)},
+        }
+    )

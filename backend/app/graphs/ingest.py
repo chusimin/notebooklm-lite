@@ -21,7 +21,7 @@ from app.llm import factory, prompts
 from app.llm.output import extract_json_object, message_text
 from app.observability.tracer import current_run, embedding_cost, span, start_run, trace_config, traced_node
 from app.rag.loaders import LoadError, decode_text, fetch_url, load_pdf, load_text
-from app.rag.splitter import split_pages
+from app.rag.splitter import CHUNK_OVERLAP, CHUNK_SIZE, split_pages
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,8 @@ class IngestState(TypedDict, total=False):
     uri: str | None
     file_bytes: bytes | None  # 文件上传的原始内容
     text: str | None  # 粘贴文本
+    chunk_size: int | None  # 演示资料切得更细，便于在屏幕上读完一张卡片；None 用默认值
+    chunk_overlap: int | None
     pages: list[dict]
     char_count: int
     chunks: list[dict]
@@ -75,7 +77,11 @@ async def load_node(state: IngestState) -> dict:
 
 @traced_node("split", label="切分片段")
 async def split_node(state: IngestState) -> dict:
-    chunks = split_pages(state["pages"])
+    chunks = split_pages(
+        state["pages"],
+        chunk_size=state.get("chunk_size") or CHUNK_SIZE,
+        chunk_overlap=state.get("chunk_overlap") if state.get("chunk_overlap") is not None else CHUNK_OVERLAP,
+    )
     if not chunks:
         raise IngestError("资料切分后没有有效内容")
     return {"chunks": chunks}
@@ -131,6 +137,7 @@ async def save_node(state: IngestState) -> dict:
         # 处理期间资料被用户删除：静默结束
         return {}
     repo.insert_chunks(source_id, state["notebook_id"], state["chunks"], state["vectors"])
+    _record_flow(state)
     repo.update_source(
         source_id,
         status="ready",
@@ -150,6 +157,33 @@ async def save_node(state: IngestState) -> dict:
             "chunk_count": len(state["chunks"]),
         }
     return {}
+
+
+FLOW_MAX_CHUNKS = 200
+
+
+def _record_flow(state: IngestState) -> None:
+    """写入演示回放快照：切片全文、词签、二维坐标与切分参数。"""
+    from app.observability import flow
+
+    chunks = state["chunks"][:FLOW_MAX_CHUNKS]
+    vectors = np.asarray(state["vectors"])[: len(chunks)]
+    coords, _ = flow.project_2d(vectors)
+    flow.record(
+        {
+            "title": state.get("title"),
+            "type": state.get("type"),
+            "char_count": state.get("char_count", 0),
+            "chunk_count": len(state["chunks"]),
+            "chunk_size": state.get("chunk_size") or CHUNK_SIZE,
+            "chunk_overlap": state.get("chunk_overlap") if state.get("chunk_overlap") is not None else CHUNK_OVERLAP,
+            "dim": int(vectors.shape[1]) if vectors.ndim == 2 else 0,
+            "chunks": [
+                {"id": c["id"], "idx": c["idx"], "page": c.get("page"), "text": c["text"], "keywords": flow.keywords(c["text"]), "xy": xy}
+                for c, xy in zip(chunks, coords)
+            ],
+        }
+    )
 
 
 def build_ingest_graph():
@@ -184,7 +218,12 @@ def _user_error(exc: BaseException) -> str:
     return f"资料处理失败：{exc.__class__.__name__}: {str(exc)[:200]}"
 
 
-async def run_ingest(source: dict, file_bytes: bytes | None = None, text: str | None = None) -> None:
+async def run_ingest(
+    source: dict,
+    file_bytes: bytes | None = None,
+    text: str | None = None,
+    chunking: tuple[int, int] | None = None,
+) -> None:
     """执行导入流程。异常不向外抛，统一写入 Source 的 failed 状态。"""
     state: IngestState = {
         "source_id": source["id"],
@@ -194,6 +233,8 @@ async def run_ingest(source: dict, file_bytes: bytes | None = None, text: str | 
         "uri": source["uri"],
         "file_bytes": file_bytes,
         "text": text,
+        "chunk_size": chunking[0] if chunking else None,
+        "chunk_overlap": chunking[1] if chunking else None,
     }
     try:
         async with start_run(
@@ -210,8 +251,13 @@ async def run_ingest(source: dict, file_bytes: bytes | None = None, text: str | 
 _background_tasks: set[asyncio.Task] = set()
 
 
-def schedule_ingest(source: dict, file_bytes: bytes | None = None, text: str | None = None) -> asyncio.Task:
-    task = asyncio.create_task(run_ingest(source, file_bytes=file_bytes, text=text))
+def schedule_ingest(
+    source: dict,
+    file_bytes: bytes | None = None,
+    text: str | None = None,
+    chunking: tuple[int, int] | None = None,
+) -> asyncio.Task:
+    task = asyncio.create_task(run_ingest(source, file_bytes=file_bytes, text=text, chunking=chunking))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
     return task

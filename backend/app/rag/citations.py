@@ -55,6 +55,16 @@ def build_citations(text: str, contexts: list[dict]) -> tuple[str, list[dict]]:
     return normalized, citations
 
 
+def cited_numbers(text: str) -> list[int]:
+    """原始答案里出现过的全部编号（去重、保序，含越界的），用于演示"哪些编号被丢掉"。"""
+    seen: list[int] = []
+    for m in _CITE_RE.finditer(text):
+        for n in (int(x) for x in _NUM_RE.findall(m.group(1))):
+            if n not in seen:
+                seen.append(n)
+    return seen
+
+
 def strip_citations(text: str) -> str:
     """历史消息里的编号对应的是旧的上下文，传给模型前去掉，避免编号混淆。"""
     return _CITE_RE.sub("", text)

@@ -24,6 +24,8 @@ class TextSourceIn(BaseModel):
 class ChatIn(BaseModel):
     question: str
     source_ids: list[str] | None = None
+    # 演示用：资料少于全文模式门槛时也强制走检索
+    force_rag: bool = False
 
 
 class FeedbackIn(BaseModel):

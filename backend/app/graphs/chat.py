@@ -20,8 +20,9 @@ from app import repo
 from app.config import settings
 from app.llm import factory, prompts
 from app.llm.output import message_text
+from app.observability import flow
 from app.observability.tracer import current_run, traced_node
-from app.rag.citations import build_citations, strip_citations
+from app.rag.citations import build_citations, cited_numbers, strip_citations
 from app.rag.retriever import hybrid_search
 
 # 中文进度标签（SSE step 事件的 label）
@@ -39,6 +40,7 @@ class ChatState(TypedDict, total=False):
     question: str
     sources: list[dict]  # 本次问答范围内的 ready 资料
     history: list[dict]  # 最近 6 条消息 [{role, content}]
+    force_rag: bool  # 演示用：资料再少也走检索
     mode: str  # full | rag
     total_chars: int
     query: str  # 检索用问题（rag 模式可能被改写）
@@ -78,10 +80,22 @@ def _public_chunk(c: dict) -> dict:
 @traced_node("choose_mode", label=STEP_LABELS["choose_mode"])
 async def choose_mode(state: ChatState) -> dict:
     total = sum(s["char_count"] for s in state["sources"])
-    mode = "full" if total <= settings.full_context_max_chars else "rag"
+    forced = bool(state.get("force_rag"))
+    mode = "rag" if forced or total > settings.full_context_max_chars else "full"
     run = current_run()
     if run is not None:
         run.mode = mode
+    flow.record(
+        {
+            "question": state["question"],
+            "mode": mode,
+            "forced": forced,
+            "total_chars": total,
+            "threshold": settings.full_context_max_chars,
+            "sources": [{"id": s["id"], "title": s["title"], "char_count": s["char_count"]} for s in state["sources"]],
+            "history_count": len(state.get("history") or []),
+        }
+    )
     result: dict = {"mode": mode, "total_chars": total, "query": state["question"]}
     if mode == "full":
         result["contexts"] = [_public_chunk(c) for c in repo.load_chunks([s["id"] for s in state["sources"]])]
@@ -108,6 +122,7 @@ async def rewrite_query(state: ChatState) -> dict:
         ]
     )
     query = message_text(reply).strip().strip("\"“”") or state["question"]
+    flow.record({"rewritten": query})
     return {"query": query}
 
 
@@ -136,9 +151,22 @@ async def generate(state: ChatState) -> dict:
 @traced_node("finalize", label=STEP_LABELS["finalize"])
 async def finalize(state: ChatState) -> dict:
     contexts = state.get("contexts") or []
-    content, citations = build_citations(state.get("answer") or "", contexts)
+    raw_answer = state.get("answer") or ""
+    content, citations = build_citations(raw_answer, contexts)
     if not content.strip():
         content = "抱歉，这次没有生成有效回答，请重试。"
+    raw_nums = cited_numbers(raw_answer)
+    flow.record(
+        {
+            "contexts": [
+                {"n": i, "id": c.get("id"), "source_title": c.get("source_title"), "idx": c.get("idx"), "text": (c.get("text") or "")[:400]}
+                for i, c in enumerate(contexts, start=1)
+            ],
+            "answer": content,
+            "cited": [c["index"] for c in citations],
+            "dropped": [n for n in raw_nums if not 1 <= n <= len(contexts)],
+        }
+    )
     run = current_run()
     message = repo.create_message(
         state["notebook_id"],
