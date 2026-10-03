@@ -4,7 +4,8 @@
 
 - 产品：http://localhost:5173
 - 观测后台：http://localhost:5173/admin
-- 设计文档：[docs/DESIGN.md](docs/DESIGN.md)
+- RAG 演示：http://localhost:5173/admin/flow
+- 设计文档：[docs/DESIGN.md](docs/DESIGN.md)，RAG 演示设计：[docs/RAG_FLOW_DEMO.md](docs/RAG_FLOW_DEMO.md)
 - 示例资料：[examples/什么是NotebookLM.md](examples/什么是NotebookLM.md)
 
 ## 它做什么
@@ -13,6 +14,7 @@
 2. 基于勾选的资料提问，回答带 `[1][2]` 引用，点击可看原文。
 3. 工作室一键生成简报 / 学习指南 / FAQ，或把回答存成笔记。
 4. 在观测后台看每次调用的链路、耗时、token 与估算成本。
+5. 在「RAG 演示」里跟着寻回犬小金，用动画回放一次真实的导入或问答：资料怎么切成卡片、变成向量，问题怎么按意思和按字面两路找、合并、交给模型。适合讲课。
 
 技术栈：FastAPI + LangGraph（导入 / 问答 / 生成三张图）+ Vite React；追踪写入本机 SQLite，不依赖 LangSmith 账号。
 
@@ -60,6 +62,7 @@ npm run dev
 3. 等资料变为「就绪」后，点推荐问题，或自己提问。
 4. 点回答里的编号，核对原文；可把回答存为笔记，或在右侧生成简报。
 5. 顶栏进入「观测后台」，看这次问答的瀑布图、节点耗时和成本。
+6. 后台左侧点「RAG 演示」→「一键导入演示资料」（虚构的喵记咖啡），再点一个预设问题，动画会自动播放。「强制检索」默认打开：资料少于 4 万字时系统本来会整份交给模型、不检索，打开它才能看到检索过程。
 
 未配置密钥时，首页会提示；导入和问答会失败。
 

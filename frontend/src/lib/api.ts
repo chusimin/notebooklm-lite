@@ -164,6 +164,82 @@ export type Health = {
   langfuse_host?: string | null
 }
 
+// ───────────── RAG 流转演示（docs/RAG_FLOW_DEMO.md 第 5 节）─────────────
+
+export type FlowKind = 'ingest' | 'chat'
+/** 2 维地图坐标，范围 0–1 */
+export type XY = [number, number]
+
+export type FlowListItem = {
+  run_id: string
+  kind: FlowKind
+  status: RunStatus
+  mode: ChatMode | null
+  notebook_id: string | null
+  notebook_title: string | null
+  started_at: string
+  latency_ms: number | null
+  /** 问答为问题、导入为资料标题 */
+  label: string
+}
+
+export type IngestSnapshot = {
+  title: string
+  type: SourceType
+  char_count: number
+  chunk_count: number
+  chunk_size: number
+  chunk_overlap: number
+  dim: number
+  chunks: { id: string; idx: number; page: number | null; text: string; keywords: string[]; xy: XY }[]
+  /** 同一笔记本里已入库的其他卡片（灰点参照），旧快照没有 */
+  neighbors?: { source_title: string; xy: XY }[]
+}
+
+export type FlowChunk = { id: string; source_id: string; source_title: string; idx: number; text: string; xy: XY }
+
+/** 问答快照：full 模式没有检索相关字段 */
+export type ChatSnapshot = {
+  question: string
+  mode: ChatMode
+  forced: boolean
+  total_chars: number
+  threshold: number
+  sources: { id: string; title: string; char_count: number }[]
+  history_count: number
+  rewritten?: string
+  query?: string
+  query_tokens?: string[]
+  query_xy?: XY | null
+  candidate_count?: number
+  chunks?: FlowChunk[]
+  vector?: { id: string; score: number }[]
+  bm25?: { id: string; score: number; matched: string[] }[]
+  fused?: { id: string; score: number; vector_rank: number | null; bm25_rank: number | null }[]
+  params?: { vector_top_k: number; bm25_top_k: number; rrf_k: number; top_n: number }
+  contexts?: { n: number; id: string; source_title: string; idx: number; text: string }[]
+  answer?: string
+  raw_answer?: string
+  cited?: number[]
+  dropped?: number[]
+}
+
+type FlowBase = {
+  run: Run
+  nodes: { name: string; latency_ms: number | null; status: RunStatus }[]
+  leaf_spans: Record<string, { latency_ms: number | null; tokens: number; model: string | null }>
+}
+export type FlowDetail = (FlowBase & { kind: 'ingest'; data: IngestSnapshot }) | (FlowBase & { kind: 'chat'; data: ChatSnapshot })
+
+export type DemoQuestion = { question: string; lesson: string; hint: string }
+export type DemoInfo = {
+  title: string
+  notebook: Notebook | null
+  sources: Source[]
+  questions: DemoQuestion[]
+  chunking: { size: number; overlap: number }
+}
+
 /** 5.3 SSE step 事件 */
 export type StepEvent = { node: string; status: 'start' | 'end'; label: string }
 
@@ -238,6 +314,12 @@ export const api = {
     return request<{ items: Run[]; total: number }>(`/admin/runs?${p.toString()}`)
   },
   adminRun: (id: string) => request<RunDetail>(`/admin/runs/${id}`),
+
+  // RAG 流转演示
+  adminFlows: (kind: FlowKind) => request<FlowListItem[]>(`/admin/flows?kind=${kind}`),
+  adminFlow: (runId: string) => request<FlowDetail>(`/admin/flows/${runId}`),
+  demoInfo: () => request<DemoInfo>('/admin/demo'),
+  demoSetup: () => request<DemoInfo>('/admin/demo/setup', json('POST')),
 }
 
 // ───────────────────────── 5.3 问答 SSE ─────────────────────────
@@ -256,7 +338,8 @@ export type ChatHandlers = {
  */
 export async function streamChat(
   notebookId: string,
-  body: { question: string; source_ids: string[] | null },
+  /** force_rag：资料少也强制走检索（演示用） */
+  body: { question: string; source_ids: string[] | null; force_rag?: boolean },
   handlers: ChatHandlers,
   signal?: AbortSignal,
 ): Promise<void> {

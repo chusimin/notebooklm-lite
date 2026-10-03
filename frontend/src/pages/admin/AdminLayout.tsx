@@ -1,10 +1,10 @@
 /**
- * 观测后台布局：左侧导航（总览 / 调用记录）+ 右侧内容区。
+ * 观测后台布局：左侧导航（总览 / 调用记录 / RAG 演示）+ 右侧内容区。
  * 底部显示后端健康状态（模型、向量模型），便于排查“为什么没数据”。
  */
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { ArrowLeft, LayoutDashboard, ListTree } from 'lucide-react'
+import { ArrowLeft, Dog, LayoutDashboard, ListTree } from 'lucide-react'
 import { api, type Health } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { LogoMark } from '../../components/Logo'
@@ -12,6 +12,7 @@ import { LogoMark } from '../../components/Logo'
 const NAV = [
   { to: '/admin', label: '总览', icon: LayoutDashboard, end: true },
   { to: '/admin/runs', label: '调用记录', icon: ListTree, end: false },
+  { to: '/admin/flow', label: 'RAG 演示', icon: Dog, end: false },
 ]
 
 export default function AdminLayout() {

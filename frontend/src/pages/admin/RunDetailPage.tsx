@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, ExternalLink, MousePointerClick } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Dog, ExternalLink, MousePointerClick } from 'lucide-react'
 import { api, type RunDetail, type Span } from '../../lib/api'
 import { errMsg } from '../../lib/http'
 import { fmtCost, fmtDateTime, fmtMs, fmtNum } from '../../lib/format'
@@ -72,6 +72,15 @@ export default function RunDetailPage() {
               <h1 className="min-w-0 flex-1 truncate text-[16px] font-semibold text-ink" title={run.input_preview}>
                 {run.input_preview || '（无输入）'}
               </h1>
+              {run.kind !== 'studio' && run.status === 'success' && (
+                <Link
+                  to={`/admin/flow?run=${run.id}`}
+                  className="inline-flex items-center gap-1 text-xs text-ink-600 hover:text-ink"
+                  title="用动画回放这次调用的数据流转"
+                >
+                  <Dog size={12} /> 看流转演示
+                </Link>
+              )}
               {run.notebook_id && (
                 <Link
                   to={`/notebooks/${run.notebook_id}`}
